@@ -1,0 +1,109 @@
+From c3cfec90dd30dc7b86ea00e5f36fadb8e1fd4a35 Mon Sep 17 00:00:00 2001
+From: tphoney <tp@puppet.com>
+Date: Fri, 2 Mar 2018 15:19:06 +0000
+Subject: [PATCH] (PUP-8364) apply like functionality for device
+
+---
+ lib/puppet/application/device.rb     | 36 +++++++++++++++++++++++++++++++++++-
+ lib/puppet/resource/catalog.rb       |  2 +-
+ spec/unit/application/device_spec.rb | 31 +++++++++++++++++++++++++++++++
+ 3 files changed, 67 insertions(+), 2 deletions(-)
+
+diff --git a/lib/puppet/application/device.rb b/lib/puppet/application/device.rb
+index be5abc422..610b9cbea 100644
+--- a/lib/puppet/application/device.rb
++++ b/lib/puppet/application/device.rb
+@@ -24,6 +24,7 @@ class Puppet::Application::Device < Puppet::Application
+     end
+ 
+     {
++      :apply => nil,
+       :waitforcert => nil,
+       :detailed_exitcodes => false,
+       :verbose => false,
+@@ -50,6 +51,10 @@ class Puppet::Application::Device < Puppet::Application
+     options[:detailed_exitcodes] = true
+   end
+ 
++  option("--apply MANIFEST") do |arg|
++    options[:apply] = arg.to_s
++  end
++
+   option("--logdest DEST", "-l DEST") do |arg|
+     handle_logdest_arg(arg)
+   end
+@@ -89,7 +94,7 @@ USAGE
+   puppet device [-d|--debug] [--detailed-exitcodes] [--deviceconfig <file>]
+                 [-h|--help] [-l|--logdest syslog|<file>|console]
+                 [-v|--verbose] [-w|--waitforcert <seconds>]
+-                [-r|--resource <type> [name]]
++                [-a|--apply <file>] [-r|--resource <type> [name]]
+                 [-t|--target <device>] [--user=<user>] [-V|--version]
+ 
+ 
+@@ -155,6 +160,9 @@ you can specify '--server <servername>' as an argument.
+   appending nature of logging. It must be appended manually to make the content
+   valid JSON.
+ 
++* --apply:
++  Apply a manifest against a remote target. Target must be specified.
++
+ * --resource:
+   Displays a resource state as Puppet code, roughly equivalent to
+   `puppet resource`.  Can be filterd by title. Requires --target be specified.
+@@ -203,6 +211,16 @@ Licensed under the Apache 2.0 License
+       Puppet.err _("resource command requires target")
+       exit(1)
+     end
++    unless options[:apply].nil?
++      if options[:target].nil?
++        Puppet.err _("missing argument: --target is required when using --apply")
++        exit(1)
++      end
++      unless File.file?(options[:apply])
++        Puppet.err _("%{file} does not exist, cannot apply") % { file: options[:apply] }
++        exit(1)
++      end
++    end
+     vardir = Puppet[:vardir]
+     confdir = Puppet[:confdir]
+     certname = Puppet[:certname]
+@@ -256,6 +274,22 @@ Licensed under the Apache 2.0 License
+               end.join("\n")
+             end
+             (puts text)
++          elsif options[:apply]
++            # avoid reporting to server
++            Puppet::Transaction::Report.indirection.terminus_class = :yaml
++            Puppet::Resource::Catalog.indirection.cache_class = nil
++
++            require 'puppet/application/apply'
++            begin
++
++              Puppet[:node_terminus] = :plain
++              Puppet[:catalog_terminus] = :compiler
++              Puppet[:catalog_cache_terminus] = nil
++              Puppet[:facts_terminus] = :network_device
++              Puppet.override(:network_device => true) do
++                Puppet::Application::Apply.new(Puppet::Util::CommandLine.new('puppet', ["apply", options[:apply]])).run_command
++              end
++            end
+           else
+             Puppet.info _("starting applying configuration to %{target} at %{scheme}%{url_host}%{port}%{url_path}") % { target: device.name, scheme: scheme, url_host: device_url.host, port: port, url_path: device_url.path }
+             # this will reload and recompute default settings and create the devices sub vardir
+diff --git a/lib/puppet/resource/catalog.rb b/lib/puppet/resource/catalog.rb
+index 97942a049..ba9884cac 100644
+--- a/lib/puppet/resource/catalog.rb
++++ b/lib/puppet/resource/catalog.rb
+@@ -595,7 +595,7 @@ class Puppet::Resource::Catalog < Puppet::Graph::SimpleGraph
+     transaction = Puppet::Transaction.new(self, options[:report], prioritizer)
+     transaction.tags = options[:tags] if options[:tags]
+     transaction.ignoreschedules = true if options[:ignoreschedules]
+-    transaction.for_network_device = options[:network_device]
++    transaction.for_network_device = Puppet.lookup(:network_device) { nil } || options[:network_device]
+ 
+     transaction
+   end
+-- 
+2.14.3
+

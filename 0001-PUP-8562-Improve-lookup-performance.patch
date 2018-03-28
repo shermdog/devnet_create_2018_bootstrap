@@ -1,0 +1,51 @@
+From 3f6d4241ffd8d1ad697cb6a892996980f1c3c068 Mon Sep 17 00:00:00 2001
+From: Melissa Stone <melissa@puppet.com>
+Date: Fri, 23 Mar 2018 12:18:56 -0700
+Subject: [PATCH] (PUP-8562) Improve lookup performance
+
+---
+ lib/puppet/context.rb            |  4 +++-
+ lib/puppet/indirector/request.rb |  8 ++------
+ lib/puppet/indirector/rest.rb    | 12 +++++-------
+ 3 files changed, 10 insertions(+), 14 deletions(-)
+
+diff --git a/lib/puppet/context.rb b/lib/puppet/context.rb
+index fdc8f72e8..731a90a05 100644
+--- a/lib/puppet/context.rb
++++ b/lib/puppet/context.rb
+@@ -45,6 +45,8 @@ class Puppet::Context
+   end
+ 
+   # @api private
++  # TODO this is bad, we're allocating way too much memory for this
++  # only include name, not the table or the stack, we don't need that extra info
+   def lookup(name, &block)
+     if @table.include?(name) && !@ignores.include?(name)
+       value = @table[name]
+@@ -52,7 +54,7 @@ class Puppet::Context
+     elsif block
+       block.call
+     else
+-      raise UndefinedBindingError, _("no '%{name}' in %{table} at top of %{stack}") % { name: name, table: @table.inspect, stack: @stack.inspect }
++      raise UndefinedBindingError, _("Unable to lookup '%{name}'") % { name: name }
+     end
+   end
+ 
+diff --git a/lib/puppet/indirector/rest.rb b/lib/puppet/indirector/rest.rb
+index b3d35b00d..b389fa710 100644
+--- a/lib/puppet/indirector/rest.rb
++++ b/lib/puppet/indirector/rest.rb
+@@ -263,7 +259,9 @@ class Puppet::Indirector::REST < Puppet::Indirector::Terminus
+   def handle_response(request, response)
+     server_version = response[Puppet::Network::HTTP::HEADER_PUPPET_VERSION]
+     if server_version
+-      Puppet.push_context({:server_agent_version => server_version})
++      unless Puppet.lookup(:server_agent_version) { nil }
++        Puppet.push_context({:server_agent_version => server_version})
++      end
+       if SemanticPuppet::Version.parse(server_version).major < MAJOR_VERSION_JSON_DEFAULT &&
+           Puppet[:preferred_serialization_format] != 'pson'
+         #TRANSLATORS "PSON" should not be translated
+-- 
+2.14.3
+
