@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Set hostname to puppet to make lab easier
+echo "Setting hostname..."
+/usr/bin/sed -i 's/localhost.localdomain/puppet/g' /etc/hostname
+/usr/bin/sed -i 's/localhost/puppet/g' /etc/hosts
+/usr/bin/hostname -F /etc/hostname
+
 echo "Downloading Puppet Enterprise..."
 /usr/bin/curl -O https://s3.amazonaws.com/pe-builds/released/2017.3.5/puppet-enterprise-2017.3.5-el-7-x86_64.tar.gz
 
