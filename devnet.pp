@@ -16,3 +16,11 @@ service { 'firewalld.service':
   ensure => 'stopped',
   enable => 'false',
 }
+
+file { '/root/.bash_profile':
+  ensure => file,
+  owner  => 'root',
+  group  => 'root',
+  mode   => '0644',
+  content => file(inline_template("<%= File.expand_path(File.dirname(__FILE__)) + '/bash_profile' %>")),
+}
