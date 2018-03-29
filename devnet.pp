@@ -1,8 +1,6 @@
-package { 'gcc':
-  ensure => 'present',
-}
+$bootstrap_packages = ['gcc', 'zlib-devel', 'patch']
 
-package { 'zlib-devel':
+package { $bootstrap_packages:
   ensure => 'present',
 }
 
