@@ -32,7 +32,7 @@ echo "Patching PE..."
 /usr/bin/patch -b -d/opt/puppetlabs/puppet/lib/ruby/vendor_ruby/puppet -p3 <0001-PUP-8562-Improve-lookup-performance.patch
 
 echo "Install IETF Demo Puppet Module..."
-/usr/local/bin/puppet module install shermdog-yang_ietf-0.0.1.tar.gz --ignore-dependencies
+/usr/local/bin/puppet module install shermdog-yang_ietf-0.0.2.tar.gz --ignore-dependencies
 
 echo "Enable rich_data for pcore support..."
 /usr/local/bin/puppet config set rich_data true
