@@ -40,3 +40,4 @@ echo "Enable rich_data for pcore support..."
 echo "Restart puppetserver for rich_data..."
 /usr/bin/systemctl restart pe-puppetserver
 
+echo "Bootstrapping complete."
